@@ -32,9 +32,9 @@ use serde_json::json;
 use serde_json::Value;
 use std::collections::HashMap;
 
-pub const MIN_PART_SIZE: usize = 5_242_880; // 5 MiB
-pub const MAX_PART_SIZE: usize = 5_368_709_120; // 5 GiB
-pub const MAX_OBJECT_SIZE: usize = 5_497_558_138_880; // 5 TiB
+pub const MIN_PART_SIZE: u64 = 5_242_880; // 5 MiB
+pub const MAX_PART_SIZE: u64 = 5_368_709_120; // 5 GiB
+pub const MAX_OBJECT_SIZE: u64 = 5_497_558_138_880; // 5 TiB
 pub const MAX_MULTIPART_COUNT: u16 = 10_000;
 pub const DEFAULT_EXPIRY_SECONDS: u32 = 604_800; // 7 days
 
@@ -104,17 +104,18 @@ fn calc_part_info(
     part_size: Option<usize>,
 ) -> Result<(usize, i16), Error> {
     if let Some(v) = part_size {
-        if v < MIN_PART_SIZE {
+
+        if (v as u64) < MIN_PART_SIZE {
             return Err(Error::InvalidMinPartSize(v));
         }
 
-        if v > MAX_PART_SIZE {
+        if (v as u64) > MAX_PART_SIZE {
             return Err(Error::InvalidMaxPartSize(v));
         }
     }
 
     if let Some(v) = object_size {
-        if v > MAX_OBJECT_SIZE {
+        if (v as u64) > MAX_OBJECT_SIZE {
             return Err(Error::InvalidObjectSize(v));
         }
     } else {
@@ -128,7 +129,7 @@ fn calc_part_info(
     let mut psize = 0_usize;
     if part_size.is_none() {
         psize = (object_size.unwrap() as f64 / MAX_MULTIPART_COUNT as f64).ceil() as usize;
-        psize = MIN_PART_SIZE * (psize as f64 / MIN_PART_SIZE as f64).ceil() as usize;
+        psize = ((MIN_PART_SIZE as f64) * (psize as f64 / MIN_PART_SIZE as f64).ceil()) as usize;
     }
 
     if psize > object_size.unwrap() {

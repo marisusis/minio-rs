@@ -708,7 +708,7 @@ impl Client {
         &self,
         sources: &'a mut Vec<ComposeSource<'_>>,
     ) -> Result<u16, Error> {
-        let mut object_size = 0_usize;
+        let mut object_size = 0_u64;
         let mut i = 0;
         let mut part_count = 0_u16;
 
@@ -742,29 +742,29 @@ impl Client {
             let stat_resp = self.stat_object(&stat_args).await?;
             source.build_headers(stat_resp.size, stat_resp.etag.clone())?;
 
-            let mut size = stat_resp.size;
+            let mut size: u64 = stat_resp.size as u64;
             if let Some(l) = source.length {
-                size = l;
+                size = l as u64;
             } else if let Some(o) = source.offset {
-                size -= o;
+                size -= o as u64;
             }
 
-            if size < MIN_PART_SIZE && sources_len != 1 && i != sources_len {
+            if (size as u64) < MIN_PART_SIZE && sources_len != 1 && i != sources_len {
                 return Err(Error::InvalidComposeSourcePartSize(
                     source.bucket.to_string(),
                     source.object.to_string(),
                     source.version_id.map(|v| v.to_string()),
-                    size,
-                    MIN_PART_SIZE,
+                    size as usize,
+                    MIN_PART_SIZE as usize,
                 ));
             }
 
             object_size += size;
-            if object_size > MAX_OBJECT_SIZE {
-                return Err(Error::InvalidObjectSize(object_size));
+            if object_size as u64 > MAX_OBJECT_SIZE {
+                return Err(Error::InvalidObjectSize(object_size as usize));
             }
 
-            if size > MAX_PART_SIZE {
+            if (size as u64) > MAX_PART_SIZE {
                 let mut count = size / MAX_PART_SIZE;
                 let mut last_part_size = size - (count * MAX_PART_SIZE);
                 if last_part_size > 0 {
@@ -773,13 +773,13 @@ impl Client {
                     last_part_size = MAX_PART_SIZE;
                 }
 
-                if last_part_size < MIN_PART_SIZE && sources_len != 1 && i != sources_len {
+                if (last_part_size as u64) < MIN_PART_SIZE && sources_len != 1 && i != sources_len {
                     return Err(Error::InvalidComposeSourceMultipart(
                         source.bucket.to_string(),
                         source.object.to_string(),
                         source.version_id.map(|v| v.to_string()),
-                        size,
-                        MIN_PART_SIZE,
+                        size as usize,
+                        MIN_PART_SIZE as usize,
                     ));
                 }
 
@@ -863,7 +863,7 @@ impl Client {
             let mut headers = source.get_headers();
             merge(&mut headers, &ssec_headers);
 
-            if size <= MAX_PART_SIZE {
+            if size <= (MAX_PART_SIZE as usize) {
                 part_number += 1;
                 if let Some(l) = source.length {
                     headers.insert(
@@ -896,8 +896,8 @@ impl Client {
                     part_number += 1;
 
                     let start_bytes = offset;
-                    let mut end_bytes = start_bytes + MAX_PART_SIZE;
-                    if size < MAX_PART_SIZE {
+                    let mut end_bytes = start_bytes + MAX_PART_SIZE as usize;
+                    if size < (MAX_PART_SIZE as usize) {
                         end_bytes = start_bytes + size;
                     }
 
@@ -972,7 +972,7 @@ impl Client {
 
         if args.source.offset.is_some()
             || args.source.length.is_some()
-            || stat_resp.size > MAX_PART_SIZE
+            || stat_resp.size > (MAX_PART_SIZE as usize)
         {
             if let Some(v) = &args.metadata_directive {
                 match v {
